@@ -74,7 +74,10 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     postgresql_conn.autocommit = False
 
     # 関数を呼び出して比較します
+    print(f"\n")
+    print(f"============================================\n")
     print(f"比較開始...")
+    print(f"--------------------------------------------\n")
     try:
         for func_name, args in functions:
             oracle_result = call_function(func_name, args, 'oracle', output_folder, oracle_conn=oracle_conn)
@@ -106,8 +109,11 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
         postgresql_conn.rollback()
         # PostgreSQL 接続の autocommit 設定を元に戻します
         postgresql_conn.autocommit = True
+        print(f"--------------------------------------------\n")
+        print(f"比較完了")
+        print(f"--------------------------------------------\n")
         print(f"データベースデータを以前の状態に戻しました")
-
+        print(f"============================================\n")
 # ファイルとデータベース接続を閉じます
 oracle_conn.close()
 postgresql_conn.close()
