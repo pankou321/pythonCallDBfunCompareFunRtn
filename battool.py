@@ -44,7 +44,18 @@ def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgre
 # タイムアウト処理関数
 def timeout_handler(func_name, args, flg, output_folder, oracle_conn=None, postgres_conn=None):
     print(f"{func_name} の処理はタイムアウトです")
-    pass
+    # 比較結果に関係なく、データベースデータを以前の状態に戻します
+    oracle_conn.rollback()
+    postgresql_conn.rollback()
+    # PostgreSQL 接続の autocommit 設定を元に戻します
+    postgresql_conn.autocommit = True
+    print(f"--------------------------------------------\n")
+    print(f"データベースデータを以前の状態に戻しました")
+    print(f"--------------------------------------------\n")
+    print(f"プログラムを強制終了しました")
+    print(f"============================================\n")
+    sys.exit(1)
+
 
 # Oracle データベースに接続します
 oracle_host = "192.168.0.37"
