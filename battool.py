@@ -8,10 +8,14 @@ def read_functions(filename):
         lines = file.readlines()
         functions = []
         for line in lines:
-            func_name, args_str = line.strip().split(',', 1)
-            args = eval(args_str)
-            functions.append((func_name.strip(), args))
+            #＃の後はコメントなので、無視する
+            func_info = line.split('#')[0].strip()
+            if func_info:  
+                func_name, args_str = func_info.split(',', 1)
+                args = eval(args_str)
+                functions.append((func_name.strip(), args))
     return functions
+
 
 def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgres_conn=None):
     output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
