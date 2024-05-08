@@ -66,7 +66,7 @@ output_folder = 'output'
 os.makedirs(output_folder, exist_ok=True)
 
 # CSV ファイルのヘッダー
-csv_header = ['関数名', '結果', 'ファイル']
+csv_header = ['関数名', '結果', 'ファイル(./output/)']
 
 # CSV ファイルの書き込み
 with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_file:
