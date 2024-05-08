@@ -2,7 +2,7 @@ import os
 import csv
 import cx_Oracle
 import psycopg2
-import signal
+import threading
 
 def read_functions(filename):
     with open(filename, 'r', encoding='utf-8') as file:
@@ -42,11 +42,9 @@ def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgre
             print("エラー：サポートされていないデータベースタイプです！\n")
 
 # タイムアウト処理関数
-def timeout_handler(signum, frame):
-    raise TimeoutError("処理タイムアウト")
-
-# タイムアウトsignal設定
-signal.signal(signal.SIGALRM, timeout_handler)
+def timeout_handler(func_name, args, flg, output_folder, oracle_conn=None, postgres_conn=None):
+    print(f"{func_name} の処理はタイムアウトです")
+    pass
 
 # Oracle データベースに接続します
 oracle_host = "192.168.0.37"
@@ -92,10 +90,23 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     print(f"--------------------------------------------\n")
     try:
         for func_name, args in functions:
-            signal.alarm(60)  # タイムアウト時間60秒を設定する
-            oracle_result = call_function(func_name, args, 'oracle', output_folder, oracle_conn=oracle_conn)
-            postgresql_result = call_function(func_name, args, 'postgresql', output_folder, postgres_conn=postgresql_conn)
-            signal.alarm(0)  # タイムアウトをクリアする
+            timeout = 60  # タイムアウト時間は60秒
+            oracle_thread = threading.Thread(target=call_function, args=(func_name, args, 'oracle', output_folder), kwargs={'oracle_conn': oracle_conn})
+            postgres_thread = threading.Thread(target=call_function, args=(func_name, args, 'postgresql', output_folder), kwargs={'postgres_conn': postgresql_conn})
+
+            oracle_thread.start()
+            postgres_thread.start()
+
+            oracle_thread.join(timeout)
+            postgres_thread.join(timeout)
+
+            if oracle_thread.is_alive():
+                timeout_handler(func_name, args, 'oracle', output_folder, oracle_conn=oracle_conn)
+                oracle_thread.join()
+
+            if postgres_thread.is_alive():
+                timeout_handler(func_name, args, 'postgresql', output_folder, postgres_conn=postgresql_conn)
+                postgres_thread.join()
 
             oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
             postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
