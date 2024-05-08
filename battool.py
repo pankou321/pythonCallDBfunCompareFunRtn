@@ -49,7 +49,8 @@ oracle_conn = cx_Oracle.connect(oracle_user, oracle_password, oracle_dsn)
 postgresql_dbname = "unif"
 postgresql_user = "postgres"
 postgresql_password = "postgres"
-postgresql_host = "192.168.0.38"
+#postgresql_host = "192.168.0.38"
+postgresql_host = "127.0.0.1"
 postgresql_port = "5432"
 postgresql_conn = psycopg2.connect(dbname=postgresql_dbname, user=postgresql_user, password=postgresql_password, host=postgresql_host, port=postgresql_port)
 
@@ -82,7 +83,16 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
             postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
             
-            compare_result = "同じ" if oracle_result == postgresql_result else "異なります"
+            compare_result = ""
+            with open(oracle_file, 'r', encoding='utf-8') as f1, open(postgresql_file, 'r', encoding='utf-8') as f2:
+                lines1 = f1.readlines()
+                lines2 = f2.readlines()
+    
+                if lines1 == lines2:
+                    compare_result = "同じ"
+                else:
+                    compare_result = "異なります"
+
             csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
             print(f"{func_name} の比較結果：{compare_result}")
     except Exception as e:
