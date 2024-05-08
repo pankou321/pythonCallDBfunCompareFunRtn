@@ -16,7 +16,7 @@ def read_functions(filename):
 def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgres_conn=None):
     output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
     with open(output_file, 'w', encoding='utf-8') as file:
-        # 根据标志参数选择数据库连接和执行方式
+        # フラグパラメータに応じてデータベース接続と実行方法を選択します
         if flg == "oracle":
             cur = oracle_conn.cursor()
             result = cur.callfunc(func_name, cx_Oracle.STRING, args)
@@ -25,7 +25,7 @@ def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgre
         
         elif flg == "postgresql":
             cur = postgres_conn.cursor()
-            # 根据参数个数动态构建 SQL 查询
+            # パラメータの数に応じて動的に SQL クエリを構築します
             placeholders = ', '.join(['%s' for _ in range(len(args))])
             sql = f"SELECT {func_name}({placeholders})"
             cur.execute(sql, args)
@@ -36,7 +36,7 @@ def call_function(func_name, args, flg, output_folder, oracle_conn=None, postgre
         else:
             print("エラー：サポートされていないデータベースタイプです！\n")
 
-# Oracleデータベースに接続
+# Oracle データベースに接続します
 oracle_host = "192.168.0.37"
 oracle_port = 1521
 oracle_sid = "unif"
@@ -45,7 +45,7 @@ oracle_password = "UNIVEAM"
 oracle_dsn = cx_Oracle.makedsn(oracle_host, oracle_port, oracle_sid)
 oracle_conn = cx_Oracle.connect(oracle_user, oracle_password, oracle_dsn)
 
-# PostgreSQLデータベースに接続
+# PostgreSQL データベースに接続します
 postgresql_dbname = "unif"
 postgresql_user = "postgres"
 postgresql_password = "postgres"
@@ -53,26 +53,26 @@ postgresql_host = "192.168.0.38"
 postgresql_port = "5432"
 postgresql_conn = psycopg2.connect(dbname=postgresql_dbname, user=postgresql_user, password=postgresql_password, host=postgresql_host, port=postgresql_port)
 
-# 関数とパラメータを読み込む
+# 関数とパラメータを読み込みます
 functions = read_functions('funs.txt')
 
 # 出力フォルダ
 output_folder = 'output'
 os.makedirs(output_folder, exist_ok=True)
 
-# CSVファイルのヘッダー
+# CSV ファイルのヘッダー
 csv_header = ['関数名', '結果', 'ファイル']
 
-# CSVファイルの書き込み
+# CSV ファイルの書き込み
 with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_file:
     csv_writer = csv.writer(csv_output_file)
     csv_writer.writerow(csv_header)
 
-    # 开启事务
+    # トランザクションを開始します
     oracle_conn.begin()
     postgresql_conn.autocommit = False
 
-    # 関数を呼び出して比較する
+    # 関数を呼び出して比較します
     print(f"比較開始...")
     try:
         for func_name, args in functions:
@@ -86,15 +86,18 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
             print(f"{func_name} の比較結果：{compare_result}")
     except Exception as e:
-        # 如果出现异常，回滚事务
+        # エラーが発生した場合、トランザクションをロールバックします
         print(f"エラーが発生しました: {e}")
-        oracle_conn.rollback()
-        postgresql_conn.rollback()
-    finally:
-        # 无论比较结果如何，都会将数据库数据恢复到之前的状态
-        oracle_conn.rollback()
-        postgresql_conn.rollback()
 
-# ファイルとデータベース接続を閉じる
+    finally:
+        # 比較結果に関係なく、データベースデータを以前の状態に戻します
+        
+        oracle_conn.rollback()
+        postgresql_conn.rollback()
+        # PostgreSQL 接続の autocommit 設定を元に戻します
+        postgresql_conn.autocommit = True
+        print(f"データベースデータを以前の状態に戻しました")
+
+# ファイルとデータベース接続を閉じます
 oracle_conn.close()
 postgresql_conn.close()
