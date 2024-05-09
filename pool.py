@@ -42,7 +42,7 @@ def call_function(flg, func_name, args, output_folder, oracle_conn=None, postgre
 # 处理函数调用并忽略超时的调用
 def process_function_call(flg, func_info, output_folder, oracle_conn=None, postgres_conn=None):
     func_name, args = func_info
-    print(f"Calling function→{func_name}")
+    print(f"Calling function→{func_name} ( {flg} )")
 
     try:
         call_function(flg, func_name, args, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn)
@@ -108,26 +108,6 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
                 future.cancel()
                 print(f"Task {future} has timed out and been cancelled.")
 
-        # 在所有线程执行结束后进行比较处理
-        print(f"--------------------------------------------\n")
-        print(f"比较开始")
-        print(f"--------------------------------------------\n")
-        for func_name, args in functions:
-            oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
-            postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
-        
-            compare_result = ""
-            with open(oracle_file, 'r', encoding='utf-8') as f1, open(postgresql_file, 'r', encoding='utf-8') as f2:
-                lines1 = f1.readlines()
-                lines2 = f2.readlines()
-
-                if lines1 == lines2:
-                    compare_result = "同じ"
-                else:
-                    compare_result = "異なります"
-
-            csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
-            print(f"{func_name} の比較結果：{compare_result}")
     except Exception as e:
         print(f"Error occurred: {e}")
 
@@ -143,10 +123,34 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
         if isinstance(postgresql_conn, psycopg2.extensions.connection):
             postgresql_conn.autocommit = True
         print(f"--------------------------------------------\n")
-        print(f"比较结束")
-        print(f"--------------------------------------------\n")
         print(f"数据库数据已回滚到先前的状态")
-        print(f"============================================\n")
+
+# 在所有线程执行结束后进行比较处理
+print(f"--------------------------------------------\n")
+print(f"比较开始")
+print(f"--------------------------------------------\n")
+executor.shutdown()  # 移动到这里
+for func_name, args in functions:
+    oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
+    postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
+
+    compare_result = ""
+    with open(oracle_file, 'r', encoding='utf-8') as f1, open(postgresql_file, 'r', encoding='utf-8') as f2:
+        lines1 = f1.readlines()
+        lines2 = f2.readlines()
+
+        if lines1 == lines2:
+            compare_result = "同じ"
+        else:
+            compare_result = "異なります"
+
+    csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
+    print(f"{func_name} の比較結果：{compare_result}")
+
+print(f"--------------------------------------------\n")
+print(f"比较结束")
+print(f"============================================\n")
+
 # 关闭文件和数据库连接
 oracle_conn.close()
 postgresql_conn.close()
