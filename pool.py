@@ -111,7 +111,8 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             
             # 移除已经取消的任务
             futures = [future for future in futures if not future.cancelled()]
-            
+            print(f"移除已经取消的任务.")
+
         # 在所有线程执行结束后进行比较处理
         print(f"--------------------------------------------\n")
         print(f"比较开始")
