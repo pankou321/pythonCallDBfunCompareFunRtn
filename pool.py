@@ -74,6 +74,9 @@ functions = read_functions('funs.txt')
 output_folder = 'output'
 os.makedirs(output_folder, exist_ok=True)
 
+# キャンセルされた関数名を追跡するための集合
+cancelled_funcs = []
+
 # CSVファイルのヘッダー
 csv_header = ['関数名', '結果', 'ファイル(./output/)']
 
@@ -108,16 +111,26 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             for future in not_done:
                 future.cancel()
                 print(f"タスク {future} がタイムアウトしてキャンセルされました。")
+                # キャンセルされた関数名を記録する
+                cancelled_funcs.append(future.args[1][0])  # future.args[1] は関数情報のタプル
+            # キャンセルされた関数名をプリントする
+            for cancelled_func in cancelled_funcs:
+                print("キャンセルされた関数名"+cancelled_func)
             
             # キャンセルされたタスクを除去する
             futures = [future for future in futures if not future.cancelled()]
             print(f"タスクキューを整理する.")
+            
 
             # すべてのスレッドが完了した後に比較処理を行う
             print(f"--------------------------------------------\n")
             print(f"比較を開始する")
             print(f"--------------------------------------------\n")
             for func_name, args in functions:
+                if func_name in cancelled_funcs:
+                    print(f"関数 {func_name} はキャンセルされたため、比較をスキップします。")
+                    continue
+                
                 oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
                 postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
         
@@ -133,6 +146,8 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
 
                 csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
                 print(f"{func_name} の比較結果：{compare_result}")
+            print(f"--------------------------------------------\n")
+            print(f"比較終了")
     except Exception as e:
         print(f"エラーが発生しました：{e}")
 
@@ -147,11 +162,11 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             oracle_conn.autocommit = True
         if isinstance(postgresql_conn, psycopg2.extensions.connection):
             postgresql_conn.autocommit = True
-        print(f"--------------------------------------------\n")
-        print(f"比較終了")
+
         print(f"--------------------------------------------\n")
         print(f"データベースのデータが以前の状態にロールバックされました")
         print(f"============================================\n")
         # ファイルとデータベースの接続を閉じる
         oracle_conn.close()
         postgresql_conn.close()
+
