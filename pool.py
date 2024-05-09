@@ -9,7 +9,7 @@ def read_functions(filename):
         lines = file.readlines()
         functions = []
         for line in lines:
-            # 忽略以#开头的注释行
+            # #で始まるコメント行を無視する
             func_info = line.split('#')[0].strip()
             if func_info:  
                 func_name, args_str = func_info.split(',', 1)
@@ -31,26 +31,26 @@ def call_function(flg, func_name, args, output_folder, oracle_conn=None, postgre
                 cur.execute(sql, args)
                 result = cur.fetchone()[0]
             else:
-                print("Error: Unsupported database type!\n")
+                print("エラー：サポートされていないデータベースタイプです！\n")
                 return
             
-            file.write(f"Result: {result}\n")
+            file.write(f"結果: {result}\n")
     except Exception as e:
-        print(f"Function call error: {e}")
+        print(f"関数呼び出しエラー： {e}")
 
-# 处理函数调用并忽略超时的调用
+# 関数呼び出しを処理し、タイムアウトした呼び出しを無視する
 def process_function_call(flg, func_info, output_folder, oracle_conn=None, postgres_conn=None):
     func_name, args = func_info
-    print(f"Calling function→{func_name} ( {flg} )")
+    print(f"関数の呼び出し→{func_name} ( {flg} )")
 
     try:
         call_function(flg, func_name, args, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn)
     except concurrent.futures.TimeoutError as exc:
-        print(f"Ignoring function call timeout for {func_name}")
+        print(f"タイムアウトした呼び出しを無視する: {func_name}")
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"エラーが発生しました：{e}")
 
-# Oracle数据库连接信息
+# Oracleデータベースの接続情報
 oracle_host = "192.168.0.37"
 oracle_port = 1521
 oracle_sid = "unif"
@@ -59,7 +59,7 @@ oracle_password = "UNIVEAM"
 oracle_dsn = cx_Oracle.makedsn(oracle_host, oracle_port, oracle_sid)
 oracle_conn = cx_Oracle.connect(oracle_user, oracle_password, oracle_dsn)
 
-# PostgreSQL数据库连接信息
+# PostgreSQLデータベースの接続情報
 postgresql_dbname = "unif"
 postgresql_user = "postgres"
 postgresql_password = "postgres"
@@ -67,55 +67,55 @@ postgresql_host = "127.0.0.1"
 postgresql_port = "5432"
 postgresql_conn = psycopg2.connect(dbname=postgresql_dbname, user=postgresql_user, password=postgresql_password, host=postgresql_host, port=postgresql_port)
 
-# 读取函数和参数
+# 関数と引数を読み込む
 functions = read_functions('funs.txt')
 
-# 创建输出文件夹
+# 出力フォルダを作成する
 output_folder = 'output'
 os.makedirs(output_folder, exist_ok=True)
 
-# CSV文件的标题
-csv_header = ['Function Name', 'Result', 'File(./output/)']
+# CSVファイルのヘッダー
+csv_header = ['関数名', '結果', 'ファイル(./output/)']
 
-# 写入CSV文件
+# CSVファイルに書き込む
 with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_file:
     csv_writer = csv.writer(csv_output_file)
     csv_writer.writerow(csv_header)
 
-    # 开始事务
+    # トランザクションを開始する
     if isinstance(oracle_conn, cx_Oracle.Connection):
         oracle_conn.autocommit = False
     if isinstance(postgresql_conn, psycopg2.extensions.connection):
         postgresql_conn.autocommit = False
 
-    # 调用函数并比较结果
+    # 関数を呼び出して結果を比較する
     print(f"\n")
     print(f"============================================\n")
-    print(f"Calling functions...")
+    print(f"関数の呼び出し...")
     print(f"--------------------------------------------\n")
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:  # 设置最大并发线程数为10
-            # 提交函数调用任务给线程池
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:  # 最大ワーカー数を10に設定
+            # スレッドプールに関数呼び出しのタスクを送信する
             futures = []
             for func_info in functions:
                 for flg in ["oracle", "postgresql"]:
                     futures.append(executor.submit(process_function_call, flg, func_info, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn))
             
-            # 使用wait方法等待所有线程结束，并设置超时时间为10秒
+            # 待機しているタスクが完了するまで待ち、タイムアウトは10秒
             done, not_done = concurrent.futures.wait(futures, timeout=10)
             
-            # 检查未完成的任务并处理超时
+            # 完了していないタスクをチェックして、タイムアウトした場合はキャンセルする
             for future in not_done:
                 future.cancel()
-                print(f"Task {future} has timed out and been cancelled.")
+                print(f"タスク {future} がタイムアウトしてキャンセルされました。")
             
-            # 移除已经取消的任务
+            # キャンセルされたタスクを除去する
             futures = [future for future in futures if not future.cancelled()]
-            print(f"任务队列整理.")
+            print(f"タスクキューを整理する.")
 
-            # 在所有线程执行结束后进行比较处理
+            # すべてのスレッドが完了した後に比較処理を行う
             print(f"--------------------------------------------\n")
-            print(f"比较开始")
+            print(f"比較を開始する")
             print(f"--------------------------------------------\n")
             for func_name, args in functions:
                 oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
@@ -134,24 +134,24 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
                 csv_writer.writerow([func_name, compare_result, f"{func_name}-oracle.txt, {func_name}-postgresql.txt"])
                 print(f"{func_name} の比較結果：{compare_result}")
     except Exception as e:
-        print(f"Error occurred: {e}")
+        print(f"エラーが発生しました：{e}")
 
     finally:
-        # 不管比较结果如何，都将数据库数据回滚到先前的状态
+        # 比較結果に関係なく、データベースのデータを以前の状態にロールバックする
         if isinstance(oracle_conn, cx_Oracle.Connection):
             oracle_conn.rollback()
         if isinstance(postgresql_conn, psycopg2.extensions.connection):
             postgresql_conn.rollback()
-        # 结束事务
+        # トランザクションを終了する
         if isinstance(oracle_conn, cx_Oracle.Connection):
             oracle_conn.autocommit = True
         if isinstance(postgresql_conn, psycopg2.extensions.connection):
             postgresql_conn.autocommit = True
         print(f"--------------------------------------------\n")
-        print(f"比较结束")
+        print(f"比較終了")
         print(f"--------------------------------------------\n")
-        print(f"数据库数据已回滚到先前的状态")
+        print(f"データベースのデータが以前の状態にロールバックされました")
         print(f"============================================\n")
-        # 关闭文件和数据库连接
+        # ファイルとデータベースの接続を閉じる
         oracle_conn.close()
         postgresql_conn.close()
