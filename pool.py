@@ -110,9 +110,13 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             # 完了していないタスクをチェックして、タイムアウトした場合はキャンセルする
             for future in not_done:
                 future.cancel()
-                print(f"タスク {future.args[1][0]} がタイムアウトしてキャンセルされました。")
-                # キャンセルされた関数名を記録する
-                cancelled_funcs.append(future.args[1][0])  # future.args[1] は関数情報のタプル
+                if len(future.args) >= 2:
+                    print(f"タスク {future.args[1][0]} がタイムアウトしてキャンセルされました。")
+                    # キャンセルされた関数名を記録する
+                    cancelled_funcs.append(future.args[1][0])
+                else:
+                    print("タスクの引数が不足しています。")
+
             # キャンセルされた関数名をプリントする
             for cancelled_func in cancelled_funcs:
                 print("キャンセルされた関数名"+cancelled_func)
