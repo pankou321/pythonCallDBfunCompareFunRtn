@@ -95,6 +95,7 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     try:
         call_function('oracle', output_folder, oracle_conn=oracle_conn)
         call_function('postgresql', output_folder, postgres_conn=postgresql_conn)
+        print(f"--------------------------------------------\n")
         print(f"比較開始...")
         print(f"--------------------------------------------\n")
         for func_name, args in functions:
