@@ -22,14 +22,18 @@ def call_function(flg, func_name, args, output_folder, oracle_conn=None, postgre
     try:
         with open(output_file, 'w', encoding='utf-8') as file:
             if flg == "oracle":
+                print(f"関数の呼び出し開始→{func_name} ( oracle )")
                 cur = oracle_conn.cursor()
                 result = cur.callfunc(func_name, cx_Oracle.STRING, args)
+                print(f"呼び出す完了→{func_name} ( oracle )")
             elif flg == "postgresql":
+                print(f"関数の呼び出し開始→{func_name} ( postgresql )")
                 cur = postgres_conn.cursor()
                 placeholders = ', '.join(['%s' for _ in range(len(args))])
                 sql = f"SELECT {func_name}({placeholders})"
                 cur.execute(sql, args)
                 result = cur.fetchone()[0]
+                print(f"呼び出す完了→{func_name} ( postgresql )")
             else:
                 print("エラー：サポートされていないデータベースタイプです！\n")
                 return
@@ -41,14 +45,14 @@ def call_function(flg, func_name, args, output_folder, oracle_conn=None, postgre
 # 関数呼び出しを処理し、タイムアウトした呼び出しを無視する
 def process_function_call(flg, func_info, output_folder, oracle_conn=None, postgres_conn=None):
     func_name, args = func_info
-    print(f"関数の呼び出し→{func_name} ( {flg} )")
-
+    
     try:
         call_function(flg, func_name, args, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn)
     except concurrent.futures.TimeoutError as exc:
         print(f"タイムアウトした呼び出しを無視する: {func_name}")
     except Exception as e:
         print(f"エラーが発生しました：{e}")
+    print(f"<関数呼び出しを処理全部完成 process_function_call >")
 
 # Oracleデータベースの接続情報
 oracle_host = "192.168.0.37"
@@ -94,10 +98,11 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     # 関数を呼び出して結果を比較する
     print(f"\n")
     print(f"============================================\n")
-    print(f"関数の呼び出し...")
+    print(f"[1]   関数の呼び出し...")
     print(f"--------------------------------------------\n")
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:  # 最大ワーカー数を10に設定
+            print(f"[2]   スレッドプールに送信.")
             # スレッドプールに関数呼び出しのタスクを送信する
             futures = []
             for func_info in functions:
@@ -105,26 +110,29 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
                     futures.append(executor.submit(process_function_call, flg, func_info, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn))
             
             # 待機しているタスクが完了するまで待ち、タイムアウトは10秒
+            print(f"[3] タイムアウトは10秒を設定")
             done, not_done = concurrent.futures.wait(futures, timeout=10)
             
             # 完了していないタスクをチェックして、タイムアウトした場合はキャンセルする
+            print(f"[4]  完了してるか、タスクのチェック")
             for future in not_done:
                 future.cancel()
                 if len(future.args) >= 2:
                     print(f"タスク {future.args[1][0]} がタイムアウトしてキャンセルされました。")
                     # キャンセルされた関数名を記録する
+                    print(f"[5]  キャンセルされた関数名を記録する")
                     cancelled_funcs.append(future.args[1][0])
                 else:
                     print("タスクの引数が不足しています。")
 
             # キャンセルされた関数名をプリントする
+            print(f"[6]  キャンセルされた関数名をコンソールに出す")
             for cancelled_func in cancelled_funcs:
                 print("キャンセルされた関数名"+cancelled_func)
             
             # キャンセルされたタスクを除去する
+            print(f"[7]  タスクキューを整理する")
             futures = [future for future in futures if not future.cancelled()]
-            print(f"タスクキューを整理する.")
-            
 
             # すべてのスレッドが完了した後に比較処理を行う
             print(f"--------------------------------------------\n")
