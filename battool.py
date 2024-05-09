@@ -2,7 +2,6 @@ import os
 import csv
 import cx_Oracle
 import psycopg2
-import threading
 import sys
 
 def read_functions(filename):
@@ -20,68 +19,33 @@ def read_functions(filename):
 
 
 def call_function(flg, output_folder, oracle_conn=None, postgres_conn=None):
-
-        
-        # フラグパラメータに応じてデータベース接続と実行方法を選択します
-        if flg == "oracle":
-            cur = oracle_conn.cursor()
-            for func_name, args in functions:
-                output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
-                with open(output_file, 'w', encoding='utf-8') as file:
-                    try:
-                        # タイムアウト時間を60秒に設定
-                        timeout = 60
-                        # 関数呼び出しをスレッドで実行
-                        print(f"{func_name}を処理しています")
-                        func_thread = threading.Thread(target=cur.callfunc, args=(func_name, cx_Oracle.STRING, args))
-                        func_thread.start()
-                        func_thread.join(timeout)
-                        # スレッドがまだ実行中の場合、タイムアウト処理関数を呼び出す
-                        if func_thread.is_alive():
-                            timeout_handler(func_name, args, flg, output_folder, oracle_conn=oracle_conn, postgres_conn=postgres_conn)
-                    except Exception as e:
-                        print(f"関数呼び出しエラー: {e}")
-        
-        elif flg == "postgresql":
-            cur = postgres_conn.cursor()
-            for func_name, args in functions:
-                output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
-                with open(output_file, 'w', encoding='utf-8') as file:
-                    try:
-                        # タイムアウト時間を60秒に設定
-                        timeout = 60
-                        print(f"{func_name}を処理しています")
-                        # 動的SQLクエリを構築
-                        placeholders = ', '.join(['%s' for _ in range(len(args))])
-                        sql = f"SELECT {func_name}({placeholders})"
-                        # クエリをスレッドで実行
-                        func_thread = threading.Thread(target=cur.execute, args=(sql, args))
-                        func_thread.start()
-                        func_thread.join(timeout)
-                        # スレッドがまだ実行中の場合、タイムアウト処理関数を呼び出す
-                        if func_thread.is_alive():
-                            timeout_handler(func_name, args, flg, output_folder, oracle_conn=oracle_conn, postgres_conn=postgres_conn)
-                    except Exception as e:
-                        print(f"関数呼び出しエラー: {e}")
-        
-        else:
-            print("エラー：サポートされていないデータベースタイプです！\n")
-
-
-# タイムアウト処理関数
-def timeout_handler(func_name, args, flg, output_folder, oracle_conn=None, postgres_conn=None):
-    print(f"{func_name} の処理はタイムアウトです")
-    # 比較結果に関係なく、データベースデータを以前の状態に戻します
-    oracle_conn.rollback()
-    postgresql_conn.rollback()
-    # PostgreSQL 接続の autocommit 設定を元に戻します
-    postgresql_conn.autocommit = True
-    print(f"--------------------------------------------\n")
-    print(f"データベースデータを以前の状態に戻しました")
-    print(f"--------------------------------------------\n")
-    print(f"プログラムを強制終了しました")
-    print(f"============================================\n")
-    sys.exit(1)
+    if flg == "oracle":
+        cur = oracle_conn.cursor()
+    elif flg == "postgresql":
+        cur = postgres_conn.cursor()
+    else:
+        print("エラー：サポートされていないデータベースタイプです！\n")
+        return
+    
+    for func_name, args in functions:
+        output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
+        try:
+            with open(output_file, 'w', encoding='utf-8') as file:
+                if isinstance(cur, cx_Oracle.Cursor):
+                    result = cur.callfunc(func_name, cx_Oracle.STRING, args)
+                elif isinstance(cur, psycopg2.extensions.cursor):
+                    placeholders = ', '.join(['%s' for _ in range(len(args))])
+                    sql = f"SELECT {func_name}({placeholders})"
+                    cur.execute(sql, args)
+                    result = cur.fetchone()[0]
+                else:
+                    print("エラー：サポートされていないデータベースタイプです！\n")
+                    return
+                
+                file.write(f"結果: {result}\n")
+        except Exception as e:
+            print(f"関数呼び出しエラー: {e}")
+            sys.exit(1)
 
 
 # Oracle データベースに接続します
@@ -117,8 +81,10 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     csv_writer.writerow(csv_header)
 
     # トランザクションを開始します
-    oracle_conn.begin()
-    postgresql_conn.autocommit = False
+    if isinstance(oracle_conn, cx_Oracle.Connection):
+        oracle_conn.autocommit = False
+    if isinstance(postgresql_conn, psycopg2.extensions.connection):
+        postgresql_conn.autocommit = False
 
     # 関数を呼び出して比較します
     print(f"\n")
@@ -150,10 +116,15 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
 
     finally:
         # 比較結果に関係なく、データベースデータを以前の状態に戻します
-        oracle_conn.rollback()
-        postgresql_conn.rollback()
-        # PostgreSQL 接続の autocommit 設定を元に戻します
-        postgresql_conn.autocommit = True
+        if isinstance(oracle_conn, cx_Oracle.Connection):
+            oracle_conn.rollback()
+        if isinstance(postgresql_conn, psycopg2.extensions.connection):
+            postgresql_conn.rollback()
+        # トランザクションを終了します
+        if isinstance(oracle_conn, cx_Oracle.Connection):
+            oracle_conn.autocommit = True
+        if isinstance(postgresql_conn, psycopg2.extensions.connection):
+            postgresql_conn.autocommit = True
         print(f"--------------------------------------------\n")
         print(f"比較完了")
         print(f"--------------------------------------------\n")
