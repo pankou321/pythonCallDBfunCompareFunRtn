@@ -42,6 +42,8 @@ def call_function(flg, func_name, args, output_folder, oracle_conn=None, postgre
 # 处理函数调用并忽略超时的调用
 def process_function_call(flg, func_info, output_folder, oracle_conn=None, postgres_conn=None):
     func_name, args = func_info
+    print(f"Calling function→{func_name}")
+
     try:
         call_function(flg, func_name, args, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn)
     except concurrent.futures.TimeoutError as exc:
@@ -97,9 +99,15 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
             for func_info in functions:
                 for flg in ["oracle", "postgresql"]:
                     futures.append(executor.submit(process_function_call, flg, func_info, output_folder, oracle_conn=oracle_conn, postgres_conn=postgresql_conn))
-            for future in concurrent.futures.as_completed(futures):
-                pass
-                
+            
+            # 使用wait方法等待所有线程结束，并设置超时时间为10秒
+            done, not_done = concurrent.futures.wait(futures, timeout=10)
+            
+            # 检查未完成的任务并处理超时
+            for future in not_done:
+                future.cancel()
+                print(f"Task {future} has timed out and been cancelled.")
+
         # 在所有线程执行结束后进行比较处理
         print(f"--------------------------------------------\n")
         print(f"比较开始")
