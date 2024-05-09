@@ -26,8 +26,9 @@ def call_function(flg, output_folder, oracle_conn=None, postgres_conn=None):
     else:
         print("エラー：サポートされていないデータベースタイプです！\n")
         return
-    
+
     for func_name, args in functions:
+        print(f"{func_name}の結果を出力する")
         output_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-{flg}.txt")
         try:
             with open(output_file, 'w', encoding='utf-8') as file:
@@ -89,11 +90,13 @@ with open('result.csv', 'w', newline='', encoding='utf-8-sig') as csv_output_fil
     # 関数を呼び出して比較します
     print(f"\n")
     print(f"============================================\n")
-    print(f"比較開始...")
+    print(f"関数の呼び出す処理")
     print(f"--------------------------------------------\n")
     try:
         call_function('oracle', output_folder, oracle_conn=oracle_conn)
         call_function('postgresql', output_folder, postgres_conn=postgresql_conn)
+        print(f"比較開始...")
+        print(f"--------------------------------------------\n")
         for func_name, args in functions:
             oracle_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-oracle.txt")
             postgresql_file = os.path.join(output_folder, f"{func_name.replace('.', '-')}-postgresql.txt")
